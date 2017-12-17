@@ -1,0 +1,260 @@
+--.open cs.db
+.open test.db
+.separator '	'
+.headers ON
+
+DROP TABLE IF EXISTS bls_data;
+DROP TABLE IF EXISTS bls_age;
+DROP TABLE IF EXISTS bls_case;
+DROP TABLE IF EXISTS bls_category;
+DROP TABLE IF EXISTS bls_datatype;
+DROP TABLE IF EXISTS bls_event;
+DROP TABLE IF EXISTS bls_gender;
+DROP TABLE IF EXISTS bls_hour;
+DROP TABLE IF EXISTS bls_industry;
+DROP TABLE IF EXISTS bls_los;
+DROP TABLE IF EXISTS bls_nature;
+DROP TABLE IF EXISTS bls_occupation;
+DROP TABLE IF EXISTS bls_ownership;
+DROP TABLE IF EXISTS bls_pob;
+DROP TABLE IF EXISTS bls_race;
+DROP TABLE IF EXISTS bls_source;
+DROP TABLE IF EXISTS bls_state;
+DROP TABLE IF EXISTS bls_time;
+DROP TABLE IF EXISTS bls_weekday;
+DROP TABLE IF EXISTS bls_series;
+DROP TABLE IF EXISTS naics_category;
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS bls_data(
+				series_id TEXT,
+				year INT,
+				period TEXT,
+				value NUM,
+				footnote NUM);
+				
+.import cs.data.1.AllData.txt bls_data
+
+
+CREATE TABLE IF NOT EXISTS bls_age(
+				age_code TEXT,
+				age_text TEXT);
+				
+.import cs.age.txt bls_age
+
+CREATE TABLE IF NOT EXISTS bls_case(
+				case_code TEXT,
+				case_text TEXT);
+
+.import cs.case.txt bls_case
+
+CREATE TABLE IF NOT EXISTS bls_category(
+				case_code TEXT,
+				category_code TEXT,
+				category_group TEXT,
+				category_text TEXT,
+				group_name TEXT,
+				description TEXT);
+				
+.import cs.category.txt bls_category
+
+CREATE TABLE IF NOT EXISTS bls_datatype(
+				datatype_code TEXT,
+				datatype_text TEXT);
+
+.import cs.datatype.txt bls_datatype
+
+CREATE TABLE IF NOT EXISTS bls_event(
+				event_code TEXT,
+				event_text TEXT);
+				
+.import cs.event.txt bls_event
+
+
+CREATE TABLE IF NOT EXISTS bls_gender(
+				gender_code TEXT,
+				gender_text TEXT);
+				
+.import cs.gender.txt bls_gender
+
+CREATE TABLE IF NOT EXISTS bls_hour(
+				hour_code TEXT,
+				hour_text TEXT);
+				
+.import cs.hour.txt bls_hour
+
+CREATE TABLE IF NOT EXISTS bls_industry(
+				industry_code TEXT,
+				industry_text TEXT);
+				
+.import cs.industry.txt bls_industry
+
+CREATE TABLE IF NOT EXISTS bls_los(
+				los_code TEXT,
+				los_text TEXT);
+				
+.import cs.los.txt bls_los
+
+CREATE TABLE IF NOT EXISTS bls_nature(
+				nature_code TEXT,
+				nature_text TEXT);
+				
+.import cs.nature.txt bls_nature
+
+CREATE TABLE IF NOT EXISTS bls_occupation(
+				occupation_code TEXT,
+				occupation_text TEXT);
+				
+.import cs.occupation.txt bls_occupation
+
+CREATE TABLE IF NOT EXISTS bls_ownership(
+				ownership_code TEXT,
+				ownnership_text TEXT);
+				
+.import cs.ownership.txt bls_ownership
+
+CREATE TABLE IF NOT EXISTS bls_pob(
+				pob_code TEXT,
+				pob_text TEXT);
+				
+.import cs.pob.txt bls_pob
+
+CREATE TABLE IF NOT EXISTS bls_race(
+				race_code TEXT,
+				race_text TEXT);
+				
+.import cs.race.txt bls_race
+
+CREATE TABLE IF NOT EXISTS bls_source(
+				source_code TEXT,
+				source_text TEXT);
+				
+.import cs.source.txt bls_source
+
+CREATE TABLE IF NOT EXISTS bls_state(
+				state_code TEXT,
+				state_text TEXT);
+				
+.import cs.state.txt bls_state
+
+CREATE TABLE IF NOT EXISTS bls_time(
+				time_code TEXT,
+				time_text TEXT);
+				
+.import cs.time.txt bls_time
+
+CREATE TABLE IF NOT EXISTS bls_weekday(
+				weekday_code TEXT,
+				weekday_text TEXT);
+				
+.import cs.pob.txt bls_weekday
+
+CREATE TABLE IF NOT EXISTS bls_series(
+				series_id TEXT,
+				seasonal TEXT,
+				category_code TEXT,
+				datatype_code TEXT,
+				case_code TEXT,
+				age_code TEXT,
+				los_code TEXT,
+				race_code TEXT,
+				gender_code TEXT,
+				pob_code TEXT,
+				event_code TEXT,
+				source_code TEXT,
+				occupation_code TEXT,
+				nature_code TEXT,
+				industry_code TEXT,
+				time_code TEXT,
+				hour_code TEXT,
+				weekday_code TEXT,
+				special_code TEXT,
+				ownership_code TEXT,
+				state_code TEXT,
+				footnote_codes TEXT,
+				begin_year TEXT,
+				begin_period TEXT,
+				end_year TEXT,
+				end_period TEXT);
+
+.import cs.series.txt bls_series
+
+CREATE TABLE IF NOT EXISTS naics_category(
+				sector TEXT,
+				description TEXT);
+
+.import cs.industry_grouped.txt naics_category
+
+CREATE TABLE industry_grouped 
+AS SELECT substr(industry_code,1,2) AS naics_code,
+	  industry_code,
+	  description
+FROM bls_industry INNER JOIN naics_category
+ON sector = naics_code
+ORDER BY sector;
+
+.headers on
+.mode csv
+.output data.csv
+
+SELECT DISTINCT 
+       bls_data.year AS year,
+       bls_state.state_text AS state_name,
+       bls_series.state_code AS state_code,
+       industry_grouped.description AS industry, 
+       bls_category.group_name AS predictor, 
+       bls_category.description AS attribute, 
+       bls_data.value
+FROM bls_series INNER JOIN industry_grouped
+ON bls_series.industry_code = industry_grouped.industry_code 
+INNER JOIN bls_category ON bls_series.category_code = bls_category.category_code
+INNER JOIN bls_data ON bls_series.series_id = bls_data.series_id
+INNER JOIN bls_state ON bls_series.state_code = bls_state.state_code
+WHERE datatype_code = '7' AND bls_series.state_code <> '00'
+AND ownership_code <> '0' 
+AND bls_series.case_code = '3' AND bls_series.industry_code <> '000000'
+AND bls_series.category_code <> '00X'
+AND bls_data.year = '2015'
+--AND begin_year = end_year
+ORDER BY industry_grouped.description;
+
+.headers on
+.mode csv
+.output data_grouped.csv
+
+SELECT DISTINCT 
+       bls_data.year AS year,
+       bls_state.state_text AS state_name,
+       bls_series.state_code AS state_cd,
+       industry_grouped.description AS industry, 
+       bls_category.group_name AS predictor, 
+       bls_category.description AS attribute, 
+       AVG(bls_data.value) as average
+FROM bls_series INNER JOIN industry_grouped
+ON bls_series.industry_code = industry_grouped.industry_code 
+INNER JOIN bls_category ON bls_series.category_code = bls_category.category_code
+INNER JOIN bls_data ON bls_series.series_id = bls_data.series_id
+INNER JOIN bls_state ON bls_series.state_code = bls_state.state_code
+WHERE datatype_code = '7' AND bls_series.state_code <> '00'
+AND ownership_code <> '0' 
+AND bls_series.case_code = '3' AND bls_series.industry_code <> '000000'
+AND bls_series.category_code <> '00X'
+AND bls_data.year = '2015'
+--AND begin_year = end_year
+GROUP BY year,state_name,state_cd,industry,predictor,attribute
+ORDER BY industry_grouped.description;
+
+.headers on
+.mode csv
+.once predictors.csv
+select distinct group_name as predictor from bls_category where group_name <> "All" and group_name <> "Industry" and group_name <> "Musculoskeletal";
+
+.headers on
+.mode csv
+.once industries.csv
+select distinct description as industry from naics_category;
+
+
